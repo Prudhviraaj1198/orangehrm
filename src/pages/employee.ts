@@ -75,12 +75,7 @@ export class EmployeePage {
   }
 
   async getPrefilledEmployeeIdFromForm(): Promise<string> {
-    /**
-     * Extracts the pre-filled Employee ID from the form input field.
-     * The Employee ID field is dynamically populated after creating an employee.
-     * 
-     * Locator strategy: Find the input that is within the "Employee Id" label container
-     */
+
     const employeeIdInput = this.page.locator(
       '.oxd-input-group:has(label:has-text("Employee Id")) input'
     );
@@ -126,19 +121,51 @@ export class EmployeePage {
     await this.page.getByRole('link', { name: 'Employee List' }).click();
     await this.page.waitForLoadState('domcontentloaded');
 
-    // Find the row containing the specific Employee ID
-    const tableBody = this.page.locator('.oxd-table-body');
-    const employeeRow = tableBody.locator('.oxd-table-row').filter({
-      has: this.page.locator('.oxd-table-cell', {
-        hasText: empID,
-      }),
-    });
+    // Wait for the table to load
+    await expect(this.employeeTable).toBeVisible();
 
-    await expect(employeeRow).toBeVisible();
-    
-    // Click the edit (pencil) icon in the matching row
-    await employeeRow.locator('i.bi-pencil-fill').click();
-    await this.page.waitForLoadState('domcontentloaded');
+    let employeeFound = false;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit to prevent infinite loops
+
+    while (!employeeFound && pageCount < maxPages) {
+      // Find the row by Employee ID in the 2nd column on current page
+      const employeeRow = this.employeeTable
+        .locator('.oxd-table-row')
+        .filter({
+          has: this.page.locator('.oxd-table-cell:nth-child(2)', {
+            hasText: empID,
+          }),
+        });
+
+      // Check if employee exists on current page
+      const rowCount = await employeeRow.count();
+      if (rowCount > 0) {
+        await expect(employeeRow).toBeVisible();
+        await employeeRow.locator('i.bi-pencil-fill').click();
+        await this.page.waitForLoadState('domcontentloaded');
+        employeeFound = true;
+        break;
+      }
+
+      // If not found, try to go to next page
+      const nextButton = this.page.locator('button[aria-label*="next"], button:has-text("→"), .pagination button:nth-child(n+2)').last();
+      const isNextDisabled = await nextButton.evaluate((el: any) => el?.disabled || el?.classList?.contains('disabled')).catch(() => true);
+      
+      if (isNextDisabled || !await nextButton.isVisible().catch(() => false)) {
+        // No more pages available
+        throw new Error(`Employee ID ${empID} not found in employee list`);
+      }
+
+      // Click next page
+      await nextButton.click();
+      await this.page.waitForLoadState('domcontentloaded');
+      pageCount++;
+    }
+
+    if (!employeeFound) {
+      throw new Error(`Employee ID ${empID} not found after checking ${pageCount} pages`);
+    }
   }
 
   async updateFirstName(newFirstName: string) {
