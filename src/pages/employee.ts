@@ -47,6 +47,7 @@ export class EmployeePage {
   async createEmployee(firstName: string, lastName: string) {
     await this.firstNameInput.fill(firstName);
     await this.lastNameInput.fill(lastName);
+    await this.page.locator('.oxd-form-loader').waitFor({ state: 'hidden' });
     await this.saveButton.click();
     await expect(this.successToast).toBeVisible();
   }

@@ -52,6 +52,16 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
+      name: 'ordered',
+      testMatch: [
+        'src/tests/creation.spec.ts',
+        'src/tests/deleteapi.spec.ts',
+        'src/tests/RBAC.spec.ts',
+      ],
+      fullyParallel: false,
+      workers: 1,
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
